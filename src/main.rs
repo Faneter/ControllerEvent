@@ -1,4 +1,6 @@
 mod controller;
+mod event;
+use controller::{Controller, KeyState};
 
 use std::time::Duration;
 
@@ -8,19 +10,27 @@ fn main() {
     // let mut enigo = Enigo::new(&Settings::default()).unwrap();
     let mut gilrs = Gilrs::new().unwrap();
 
-    let mut exit_requested = false;
+    let mut controller = Controller::new();
 
-    for (_id, gamepad) in gilrs.gamepads() {
-        println!("{} is {:?}", gamepad.name(), gamepad.power_info());
-    }
+    let exit_requested = false;
+
     while !exit_requested {
         while let Some(event) = gilrs.next_event() {
             println!("{:?}", event);
             match event.event {
-                EventType::ButtonPressed(gilrs::Button::Select, _) => {
-                    exit_requested = true;
+                EventType::ButtonPressed(button, _) => {
+                    controller.update_button(button, KeyState::Key(true));
                 }
-                _ => println!("123"),
+                EventType::ButtonReleased(button, _) => {
+                    controller.update_button(button, KeyState::Key(false));
+                }
+                EventType::ButtonChanged(trigger, value, _) => {
+                    controller.update_button(trigger, KeyState::Trigger(value));
+                }
+                EventType::AxisChanged(axis, value, _) => {
+                    controller.update_axis(axis, KeyState::Axis(value));
+                }
+                _ => (),
             }
         }
         std::thread::sleep(Duration::from_millis(1));
