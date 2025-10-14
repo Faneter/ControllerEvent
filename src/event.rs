@@ -2,14 +2,17 @@ use crate::controller::{GamepadState, KeyState};
 use enigo::{Button, Coordinate, Direction, Enigo, Key, Keyboard, Mouse};
 use std::collections::HashMap;
 
-#[derive(Eq, Hash, PartialEq)]
+#[derive(Debug, Eq, Hash, PartialEq)]
 pub enum Input {
     ButtonPressed(gilrs::Button),
     ButtonReleased(gilrs::Button),
+    TriggerPressed(gilrs::Button),
+    TriggerReleased(gilrs::Button),
     TriggerChanged(gilrs::Button),
     AxisChanged(gilrs::Axis),
 }
 
+#[derive(Debug, Eq, Hash, PartialEq)]
 pub enum Event {
     KeyClick(Key),          // 按下并释放单个按键
     KeyPress(Key),          // 按住按键
@@ -21,7 +24,12 @@ pub enum Event {
     MouseMoveAbs(i32, i32), // 绝对移动鼠标
     MouseScroll(i32, i32),  // 滚动鼠标滚轮
     Macro(Vec<Event>),      // 宏动作序列
-    Other(fn()),            // 其他自定义事件
+    Condition(
+        fn(key_state: &KeyState, last_key_state: &KeyState) -> bool,
+        Box<Event>,
+    ),
+    Other(fn() -> Event), // 其他自定义事件
+    None,                 // 无动作
 }
 
 pub struct Binder {
@@ -61,7 +69,54 @@ impl Binder {
                         Binder::excute_event(enigo, event);
                     }
                 }
-                _ => (),
+                Input::TriggerPressed(button) => {
+                    if let Some(KeyState::Trigger(value)) = gamepad_state.get_button_state(button) {
+                        if let Some(KeyState::Trigger(last_value)) =
+                            gamepad_state.get_last_button_state(button)
+                        {
+                            if *value > 0.5 && *last_value <= 0.5 {
+                                Binder::excute_event(enigo, event);
+                            }
+                        }
+                    }
+                }
+                Input::TriggerReleased(button) => {
+                    if let Some(KeyState::Trigger(value)) = gamepad_state.get_button_state(button) {
+                        if let Some(KeyState::Trigger(last_value)) =
+                            gamepad_state.get_last_button_state(button)
+                        {
+                            if *value <= 0.5 && *last_value > 0.5 {
+                                Binder::excute_event(enigo, event);
+                            }
+                        }
+                    }
+                }
+                Input::TriggerChanged(button) => {
+                    if let Some(key_state) = gamepad_state.get_button_state(button) {
+                        if let Some(last_key_state) = gamepad_state.get_last_button_state(button) {
+                            if let Event::Condition(func, boxed_event) = event {
+                                if func(key_state, last_key_state) {
+                                    Binder::excute_event(enigo, boxed_event);
+                                }
+                            } else {
+                                Binder::excute_event(enigo, event);
+                            }
+                        }
+                    }
+                }
+                Input::AxisChanged(axis) => {
+                    if let Some(key_state) = gamepad_state.get_axis_state(axis) {
+                        if let Some(last_key_state) = gamepad_state.get_last_axis_state(axis) {
+                            if let Event::Condition(func, boxed_event) = event {
+                                if func(key_state, last_key_state) {
+                                    Binder::excute_event(enigo, boxed_event);
+                                }
+                            } else {
+                                Binder::excute_event(enigo, event);
+                            }
+                        }
+                    }
+                }
             }
             return;
         }
@@ -86,7 +141,9 @@ impl Binder {
                     Binder::excute_event(enigo, event);
                 }
             }
-            Event::Other(func) => func(),
+            Event::Other(func) => Binder::excute_event(enigo, &func()),
+            Event::None => (),
+            _ => (),
         }
     }
 }

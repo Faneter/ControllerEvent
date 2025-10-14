@@ -6,6 +6,8 @@ use event::Binder;
 use gilrs::{EventType, Gilrs};
 use std::time::Duration;
 
+use crate::event::{Event, Input};
+
 fn main() {
     let mut enigo = Enigo::new(&Settings::default()).unwrap();
     let mut gilrs = Gilrs::new().unwrap();
@@ -14,8 +16,29 @@ fn main() {
     let mut binder = Binder::new();
 
     binder.add_mapping(
-        event::Input::ButtonReleased(gilrs::Button::Select),
-        event::Event::Other(|| println!("Hello")),
+        Input::ButtonReleased(gilrs::Button::Select),
+        Event::Other(|| {
+            println!("Hello, world!");
+            return Event::None;
+        }),
+    );
+    binder.add_mapping(
+        Input::ButtonPressed(gilrs::Button::West),
+        Event::MousePress(enigo::Button::Left),
+    );
+    binder.add_mapping(
+        Input::ButtonReleased(gilrs::Button::West),
+        Event::MouseRelease(enigo::Button::Left),
+    );
+    binder.add_mapping(
+        Input::TriggerChanged(gilrs::Button::LeftTrigger2),
+        Event::Condition(
+            |v1, v2| {
+                println!("Trigger value changed from {:?} to {:?}", v2, v1);
+                return true;
+            },
+            Box::new(Event::None),
+        ),
     );
 
     let exit_requested = false;
@@ -69,4 +92,4 @@ fn main() {
     }
 }
 
-fn init_mouse_move_event() {}
+// fn init_mouse_move_event() {}

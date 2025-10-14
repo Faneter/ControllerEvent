@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+#[derive(Debug, PartialEq)]
 pub enum KeyState {
     Key(bool),
     Trigger(f32),
@@ -47,11 +48,11 @@ impl GamepadState {
         return self.last_buttons.get(button);
     }
 
-    pub fn get_axis_state(&self, axis: gilrs::Axis) -> Option<&KeyState> {
+    pub fn get_axis_state(&self, axis: &gilrs::Axis) -> Option<&KeyState> {
         return self.axes.get(&axis);
     }
 
-    pub fn get_last_axis_state(&self, axis: gilrs::Axis) -> Option<&KeyState> {
+    pub fn get_last_axis_state(&self, axis: &gilrs::Axis) -> Option<&KeyState> {
         return self.last_axes.get(&axis);
     }
 }
