@@ -78,11 +78,21 @@ fn main() {
                 EventType::ButtonChanged(gilrs::Button::RightTrigger2, value, _) => {
                     gamepad_state
                         .update_button(gilrs::Button::RightTrigger2, KeyState::Trigger(value));
+                    binder.handle_events(
+                        &gamepad_state,
+                        &mut enigo,
+                        &event::Input::TriggerChanged(gilrs::Button::RightTrigger2),
+                    );
                     gamepad_state
                         .update_last_button(gilrs::Button::RightTrigger2, KeyState::Trigger(value));
                 }
                 EventType::AxisChanged(axis, value, _) => {
                     gamepad_state.update_axis(axis, KeyState::Axis(value));
+                    binder.handle_events(
+                        &gamepad_state,
+                        &mut enigo,
+                        &&event::Input::AxisChanged(axis),
+                    );
                     gamepad_state.update_last_axis(axis, KeyState::Axis(value));
                 }
                 _ => (),

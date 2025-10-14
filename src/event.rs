@@ -25,7 +25,7 @@ pub enum Event {
     MouseScroll(i32, i32),  // 滚动鼠标滚轮
     Macro(Vec<Event>),      // 宏动作序列
     Condition(
-        fn(key_state: &KeyState, last_key_state: &KeyState) -> bool,
+        fn(key_state: KeyState, last_key_state: KeyState) -> bool,
         Box<Event>,
     ),
     Other(fn() -> Event), // 其他自定义事件
@@ -37,9 +37,6 @@ pub struct Binder {
     mappings: HashMap<Input, Event>,
     // 组合键映射 (主键 + 修改键) -> 动作
     combo_mappings: HashMap<(Input, Input), Event>,
-    // 特殊模式配置
-    toggle_modes: HashMap<Input, (Event, Event)>, // 切换模式
-    hold_modes: HashMap<Input, (Event, Event)>,   // 按住模式
 }
 
 impl Binder {
@@ -47,8 +44,6 @@ impl Binder {
         Self {
             mappings: HashMap::new(),
             combo_mappings: HashMap::new(),
-            toggle_modes: HashMap::new(),
-            hold_modes: HashMap::new(),
         }
     }
 
@@ -57,72 +52,28 @@ impl Binder {
     }
 
     pub fn handle_events(&self, gamepad_state: &GamepadState, enigo: &mut Enigo, input: &Input) {
-        if let Some(event) = self.mappings.get(input) {
-            match input {
-                Input::ButtonPressed(button) => {
-                    if let Some(KeyState::Key(true)) = gamepad_state.get_button_state(button) {
-                        Binder::excute_event(enigo, event);
-                    }
-                }
-                Input::ButtonReleased(button) => {
-                    if let Some(KeyState::Key(false)) = gamepad_state.get_button_state(button) {
-                        Binder::excute_event(enigo, event);
-                    }
-                }
-                Input::TriggerPressed(button) => {
-                    if let Some(KeyState::Trigger(value)) = gamepad_state.get_button_state(button) {
-                        if let Some(KeyState::Trigger(last_value)) =
-                            gamepad_state.get_last_button_state(button)
-                        {
-                            if *value > 0.5 && *last_value <= 0.5 {
-                                Binder::excute_event(enigo, event);
-                            }
-                        }
-                    }
-                }
-                Input::TriggerReleased(button) => {
-                    if let Some(KeyState::Trigger(value)) = gamepad_state.get_button_state(button) {
-                        if let Some(KeyState::Trigger(last_value)) =
-                            gamepad_state.get_last_button_state(button)
-                        {
-                            if *value <= 0.5 && *last_value > 0.5 {
-                                Binder::excute_event(enigo, event);
-                            }
-                        }
-                    }
-                }
-                Input::TriggerChanged(button) => {
-                    if let Some(key_state) = gamepad_state.get_button_state(button) {
-                        if let Some(last_key_state) = gamepad_state.get_last_button_state(button) {
-                            if let Event::Condition(func, boxed_event) = event {
-                                if func(key_state, last_key_state) {
-                                    Binder::excute_event(enigo, boxed_event);
-                                }
-                            } else {
-                                Binder::excute_event(enigo, event);
-                            }
-                        }
-                    }
-                }
-                Input::AxisChanged(axis) => {
-                    if let Some(key_state) = gamepad_state.get_axis_state(axis) {
-                        if let Some(last_key_state) = gamepad_state.get_last_axis_state(axis) {
-                            if let Event::Condition(func, boxed_event) = event {
-                                if func(key_state, last_key_state) {
-                                    Binder::excute_event(enigo, boxed_event);
-                                }
-                            } else {
-                                Binder::excute_event(enigo, event);
-                            }
-                        }
-                    }
+        // 检查组合键
+        for ((main, modifier), event) in &self.combo_mappings {
+            if input == modifier {
+                if Binder::is_active(gamepad_state, main) != None
+                    && Binder::is_active(gamepad_state, modifier) != None
+                {
+                    Binder::excute_event(enigo, event, None);
+                    return;
                 }
             }
-            return;
+        }
+
+        // 处理单键事件
+        if let Some(event) = self.mappings.get(input) {
+            if let Some(states) = Binder::is_active(gamepad_state, input) {
+                Binder::excute_event(enigo, event, Some(states));
+                return;
+            }
         }
     }
 
-    pub fn excute_event(enigo: &mut Enigo, event: &Event) {
+    pub fn excute_event(enigo: &mut Enigo, event: &Event, states: Option<(KeyState, KeyState)>) {
         match event {
             Event::KeyClick(key) => enigo.key(*key, Direction::Click).unwrap(),
             Event::KeyPress(key) => enigo.key(*key, Direction::Press).unwrap(),
@@ -138,12 +89,87 @@ impl Binder {
             }
             Event::Macro(events) => {
                 for event in events {
-                    Binder::excute_event(enigo, event);
+                    Binder::excute_event(enigo, event, None);
                 }
             }
-            Event::Other(func) => Binder::excute_event(enigo, &func()),
+            Event::Condition(cond, boxed_event) => {
+                if let Some((key_state, last_key_state)) = states {
+                    if cond(key_state, last_key_state) {
+                        Binder::excute_event(enigo, boxed_event, None);
+                    }
+                }
+            }
+            Event::Other(func) => Binder::excute_event(enigo, &func(), None),
             Event::None => (),
-            _ => (),
         }
+    }
+
+    fn is_active(gamepad_state: &GamepadState, input: &Input) -> Option<(KeyState, KeyState)> {
+        match input {
+            Input::ButtonPressed(button) => {
+                if let Some(KeyState::Key(true)) = gamepad_state.get_button_state(button) {
+                    return Some((KeyState::Key(true), KeyState::Key(false)));
+                }
+            }
+            Input::ButtonReleased(button) => {
+                if let Some(KeyState::Key(false)) = gamepad_state.get_button_state(button) {
+                    return Some((KeyState::Key(false), KeyState::Key(true)));
+                }
+            }
+            Input::TriggerPressed(button) => {
+                if let Some(KeyState::Trigger(value)) = gamepad_state.get_button_state(button) {
+                    if let Some(KeyState::Trigger(last_value)) =
+                        gamepad_state.get_last_button_state(button)
+                    {
+                        if *value > 0.5 && *last_value <= 0.5 {
+                            return Some((
+                                KeyState::Trigger(*value),
+                                KeyState::Trigger(*last_value),
+                            ));
+                        }
+                    }
+                }
+            }
+            Input::TriggerReleased(button) => {
+                if let Some(KeyState::Trigger(value)) = gamepad_state.get_button_state(button) {
+                    if let Some(KeyState::Trigger(last_value)) =
+                        gamepad_state.get_last_button_state(button)
+                    {
+                        if *value <= 0.5 && *last_value > 0.5 {
+                            return Some((
+                                KeyState::Trigger(*value),
+                                KeyState::Trigger(*last_value),
+                            ));
+                        }
+                    }
+                }
+            }
+            Input::TriggerChanged(button) => {
+                if let Some(KeyState::Trigger(value)) = gamepad_state.get_button_state(button) {
+                    if let Some(KeyState::Trigger(last_value)) =
+                        gamepad_state.get_last_button_state(button)
+                    {
+                        if value != last_value {
+                            return Some((
+                                KeyState::Trigger(*value),
+                                KeyState::Trigger(*last_value),
+                            ));
+                        }
+                    }
+                }
+            }
+            Input::AxisChanged(axis) => {
+                if let Some(KeyState::Axis(value)) = gamepad_state.get_axis_state(axis) {
+                    if let Some(KeyState::Axis(last_value)) =
+                        gamepad_state.get_last_axis_state(axis)
+                    {
+                        if value != last_value {
+                            return Some((KeyState::Axis(*value), KeyState::Axis(*last_value)));
+                        }
+                    }
+                }
+            }
+        }
+        return None;
     }
 }
