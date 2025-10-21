@@ -24,6 +24,12 @@ static mut LAST_Y: f32 = 0.0;
 static mut DELTA_TIME: f32 = 1.0 / UPDATE_RATE_HZ as f32; // 每次更新的时间间隔 (秒)
 
 fn main() {
+    #[cfg(target_os = "windows")]
+    // This is needed on Windows if you want the application to respect the users scaling settings.
+    // Please look at the documentation of the function to see better ways to achive this and
+    // important gotchas
+    enigo::set_dpi_awareness().unwrap();
+
     let mut enigo = Enigo::new(&Settings::default()).unwrap();
     let screen = enigo.main_display().unwrap();
     let mut gilrs = Gilrs::new().unwrap();
@@ -219,14 +225,6 @@ fn move_mouse(enigo: &mut Enigo, screen: (i32, i32)) {
 
         if delta_x.abs() <= 0.01 && delta_y.abs() <= 0.01 {
             return; // 无需移动
-        }
-        // TODO 找出enigo移动鼠标向右下偏移1个像素的原因，用更好的方式解决偏移问题
-        let pos = enigo.location().unwrap();
-        if pos.0 >= screen.0 / 2 {
-            delta_x -= 1.0;
-        }
-        if pos.1 >= screen.1 / 2 {
-            delta_y -= 1.0;
         }
         // 移动鼠标
         enigo
