@@ -25,6 +25,7 @@ static mut DELTA_TIME: f32 = 1.0 / UPDATE_RATE_HZ as f32; // 每次更新的时�
 
 fn main() {
     let mut enigo = Enigo::new(&Settings::default()).unwrap();
+    let screen = enigo.main_display().unwrap();
     let mut gilrs = Gilrs::new().unwrap();
 
     let mut gamepad_state = GamepadState::new();
@@ -132,7 +133,7 @@ fn main() {
         }
 
         calculate_velocity();
-        move_mouse(&mut enigo);
+        move_mouse(&mut enigo, screen);
         std::thread::sleep(Duration::from_millis(1));
     }
 }
@@ -209,17 +210,23 @@ fn calculate_velocity() {
     }
 }
 
-fn move_mouse(enigo: &mut Enigo) {
+fn move_mouse(enigo: &mut Enigo, screen: (i32, i32)) {
     unsafe {
         // 计算带加速的移动距离
         let speed_factor = MOUSE_SPEED * (1.0 + VEL_X.abs().max(VEL_Y.abs()) * ACCELERATION_FACTOR);
-        let delta_x = (VEL_X * speed_factor).clamp(-MAX_SPEED, MAX_SPEED);
-        let delta_y = -(VEL_Y * speed_factor).clamp(-MAX_SPEED, MAX_SPEED); // 反转Y轴
-
-        // println!("Moving mouse by ({}, {})", delta_x, delta_y);
+        let mut delta_x = (VEL_X * speed_factor).clamp(-MAX_SPEED, MAX_SPEED);
+        let mut delta_y = -(VEL_Y * speed_factor).clamp(-MAX_SPEED, MAX_SPEED); // 反转Y轴
 
         if delta_x.abs() <= 0.01 && delta_y.abs() <= 0.01 {
             return; // 无需移动
+        }
+        // TODO 找出enigo移动鼠标向右下偏移1个像素的原因，用更好的方式解决偏移问题
+        let pos = enigo.location().unwrap();
+        if pos.0 >= screen.0 / 2 {
+            delta_x -= 1.0;
+        }
+        if pos.1 >= screen.1 / 2 {
+            delta_y -= 1.0;
         }
         // 移动鼠标
         enigo
