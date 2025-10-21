@@ -1,5 +1,6 @@
 mod controller;
 mod event;
+mod file;
 use controller::{GamepadState, KeyState};
 use enigo::{Coordinate, Enigo, Mouse, Settings};
 use event::Binder;
@@ -215,7 +216,7 @@ fn move_mouse(enigo: &mut Enigo) {
         let delta_x = (VEL_X * speed_factor).clamp(-MAX_SPEED, MAX_SPEED);
         let delta_y = -(VEL_Y * speed_factor).clamp(-MAX_SPEED, MAX_SPEED); // 反转Y轴
 
-        println!("Moving mouse by ({}, {})", delta_x, delta_y);
+        // println!("Moving mouse by ({}, {})", delta_x, delta_y);
 
         if delta_x.abs() <= 0.01 && delta_y.abs() <= 0.01 {
             return; // 无需移动

@@ -93,6 +93,7 @@ impl Binder {
     }
 
     pub fn excute_event(enigo: &mut Enigo, event: &Event, states: Option<(KeyState, KeyState)>) {
+        // println!("{:?}", states);
         match event {
             Event::KeyClick(key) => enigo.key(*key, Direction::Click).unwrap(),
             Event::KeyPress(key) => enigo.key(*key, Direction::Press).unwrap(),
@@ -108,7 +109,7 @@ impl Binder {
             }
             Event::Macro(events) => {
                 for event in events {
-                    Binder::excute_event(enigo, event, None);
+                    Binder::excute_event(enigo, event, states);
                 }
             }
             Event::Condition(cond, boxed_event) => {
