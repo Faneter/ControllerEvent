@@ -48,7 +48,26 @@ impl Binder {
     }
 
     pub fn add_mapping(&mut self, input: Input, event: Event) {
-        self.mappings.insert(input, event);
+        match self.mappings.get_mut(&input) {
+            Some(Event::Macro(v)) => {
+                v.push(event);
+            }
+            _ => {
+                self.mappings.insert(input, Event::Macro(vec![event]));
+            }
+        }
+    }
+
+    pub fn add_combo_mapping(&mut self, inputs: (Input, Input), event: Event) {
+        match self.combo_mappings.get_mut(&inputs) {
+            Some(Event::Macro(v)) => {
+                v.push(event);
+            }
+            _ => {
+                self.combo_mappings
+                    .insert(inputs, Event::Macro(vec![event]));
+            }
+        }
     }
 
     pub fn handle_events(&self, gamepad_state: &GamepadState, enigo: &mut Enigo, input: &Input) {
