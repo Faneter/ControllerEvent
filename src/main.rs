@@ -4,7 +4,7 @@ mod file;
 use controller::{GamepadState, KeyState};
 use enigo::{Coordinate, Enigo, Mouse, Settings};
 use event::Binder;
-use gilrs::{EventType, Gilrs};
+use gilrs::{Button, EventType, Gilrs};
 use std::time::{Duration, Instant};
 
 use crate::event::{Event, Input};
@@ -31,7 +31,6 @@ fn main() {
     enigo::set_dpi_awareness().unwrap();
 
     let mut enigo = Enigo::new(&Settings::default()).unwrap();
-    let screen = enigo.main_display().unwrap();
     let mut gilrs = Gilrs::new().unwrap();
 
     let mut gamepad_state = GamepadState::new();
@@ -39,31 +38,7 @@ fn main() {
 
     init_mouse_move_event(&mut binder);
 
-    binder.add_mapping(
-        Input::ButtonReleased(gilrs::Button::Select),
-        Event::Other(|| {
-            println!("Hello, world!");
-            return Event::None;
-        }),
-    );
-    binder.add_mapping(
-        Input::ButtonPressed(gilrs::Button::West),
-        Event::MousePress(enigo::Button::Left),
-    );
-    binder.add_mapping(
-        Input::ButtonReleased(gilrs::Button::West),
-        Event::MouseRelease(enigo::Button::Left),
-    );
-    binder.add_mapping(
-        Input::TriggerChanged(gilrs::Button::LeftTrigger2),
-        Event::Condition(
-            |v1, v2| {
-                println!("Trigger value changed from {:?} to {:?}", v2, v1);
-                return true;
-            },
-            Box::new(Event::None),
-        ),
-    );
+    test_keybind_config(&mut binder);
 
     let frame_duration = Duration::from_secs_f32(1.0 / UPDATE_RATE_HZ as f32);
     let mut last_update = Instant::now();
@@ -139,7 +114,7 @@ fn main() {
         }
 
         calculate_velocity();
-        move_mouse(&mut enigo, screen);
+        move_mouse(&mut enigo);
         std::thread::sleep(Duration::from_millis(1));
     }
 }
@@ -216,12 +191,12 @@ fn calculate_velocity() {
     }
 }
 
-fn move_mouse(enigo: &mut Enigo, screen: (i32, i32)) {
+fn move_mouse(enigo: &mut Enigo) {
     unsafe {
         // 计算带加速的移动距离
         let speed_factor = MOUSE_SPEED * (1.0 + VEL_X.abs().max(VEL_Y.abs()) * ACCELERATION_FACTOR);
-        let mut delta_x = (VEL_X * speed_factor).clamp(-MAX_SPEED, MAX_SPEED);
-        let mut delta_y = -(VEL_Y * speed_factor).clamp(-MAX_SPEED, MAX_SPEED); // 反转Y轴
+        let delta_x = (VEL_X * speed_factor).clamp(-MAX_SPEED, MAX_SPEED);
+        let delta_y = -(VEL_Y * speed_factor).clamp(-MAX_SPEED, MAX_SPEED); // 反转Y轴
 
         if delta_x.abs() <= 0.01 && delta_y.abs() <= 0.01 {
             return; // 无需移动
@@ -231,4 +206,31 @@ fn move_mouse(enigo: &mut Enigo, screen: (i32, i32)) {
             .move_mouse(delta_x as i32, delta_y as i32, Coordinate::Rel)
             .expect("Failed to move mouse.");
     }
+}
+
+fn test_keybind_config(binder: &mut Binder) {
+    binder.add_mapping(
+        Input::TriggerPressed(gilrs::Button::LeftTrigger2),
+        Event::KeyPress(enigo::Key::Control),
+    );
+    binder.add_mapping(
+        Input::TriggerReleased(gilrs::Button::LeftTrigger2),
+        Event::KeyRelease(enigo::Key::Control),
+    );
+    binder.add_mapping(
+        Input::ButtonPressed(Button::West),
+        Event::MousePress(enigo::Button::Left),
+    );
+    binder.add_mapping(
+        Input::ButtonReleased(Button::West),
+        Event::MouseRelease(enigo::Button::Left),
+    );
+    binder.add_mapping(
+        Input::ButtonPressed(Button::North),
+        Event::MousePress(enigo::Button::Right),
+    );
+    binder.add_mapping(
+        Input::ButtonReleased(Button::North),
+        Event::MouseRelease(enigo::Button::Right),
+    );
 }
