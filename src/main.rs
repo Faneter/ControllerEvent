@@ -9,10 +9,10 @@ use std::time::{Duration, Instant};
 
 use crate::event::{Event, Input};
 
-const MOUSE_SPEED: f32 = 3.0; // 基础鼠标移动速度
+const MOUSE_SPEED: f32 = 5.0; // 基础鼠标移动速度
 const ACCELERATION_FACTOR: f32 = 0.1; // 加速因子
-const DEADZONE: f32 = 0.1; // 摇杆死区范围
-const MAX_SPEED: f32 = 10.0; // 最大移动速度
+const DEADZONE: f32 = 0.0; // 摇杆死区范围
+const MAX_SPEED: f32 = 20.0; // 最大移动速度
 const UPDATE_RATE_HZ: u32 = 120; // 更新频率 (Hz)
 
 static mut VEL_X: f32 = 0.0;
@@ -210,11 +210,11 @@ fn move_mouse(enigo: &mut Enigo) {
 
 fn test_keybind_config(binder: &mut Binder) {
     binder.add_mapping(
-        Input::TriggerPressed(gilrs::Button::LeftTrigger2),
+        Input::ButtonPressed(gilrs::Button::LeftTrigger2),
         Event::KeyPress(enigo::Key::Control),
     );
     binder.add_mapping(
-        Input::TriggerReleased(gilrs::Button::LeftTrigger2),
+        Input::ButtonReleased(gilrs::Button::LeftTrigger2),
         Event::KeyRelease(enigo::Key::Control),
     );
     binder.add_mapping(

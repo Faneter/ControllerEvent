@@ -6,8 +6,6 @@ use std::collections::HashMap;
 pub enum Input {
     ButtonPressed(gilrs::Button),
     ButtonReleased(gilrs::Button),
-    TriggerPressed(gilrs::Button),
-    TriggerReleased(gilrs::Button),
     TriggerChanged(gilrs::Button),
     AxisChanged(gilrs::Axis),
 }
@@ -134,34 +132,6 @@ impl Binder {
             Input::ButtonReleased(button) => {
                 if let Some(KeyState::Key(false)) = gamepad_state.get_button_state(button) {
                     return Some((KeyState::Key(false), KeyState::Key(true)));
-                }
-            }
-            Input::TriggerPressed(button) => {
-                if let Some(KeyState::Trigger(value)) = gamepad_state.get_button_state(button) {
-                    if let Some(KeyState::Trigger(last_value)) =
-                        gamepad_state.get_last_button_state(button)
-                    {
-                        if *value > 0.5 && *last_value <= 0.5 {
-                            return Some((
-                                KeyState::Trigger(*value),
-                                KeyState::Trigger(*last_value),
-                            ));
-                        }
-                    }
-                }
-            }
-            Input::TriggerReleased(button) => {
-                if let Some(KeyState::Trigger(value)) = gamepad_state.get_button_state(button) {
-                    if let Some(KeyState::Trigger(last_value)) =
-                        gamepad_state.get_last_button_state(button)
-                    {
-                        if *value <= 0.5 && *last_value > 0.5 {
-                            return Some((
-                                KeyState::Trigger(*value),
-                                KeyState::Trigger(*last_value),
-                            ));
-                        }
-                    }
                 }
             }
             Input::TriggerChanged(button) => {
